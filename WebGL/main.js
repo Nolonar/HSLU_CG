@@ -97,9 +97,10 @@ class Renderer {
         for (const attribute in renderObject.attributes) {
             const location = this.attributeLocations[attribute];
             const buffer = renderObject.buffers[attribute];
+            const dimensions = renderObject.attributes[attribute].dimensions;
 
             this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-            this.gl.vertexAttribPointer(location, 4, this.gl.FLOAT, false, 0, 0);
+            this.gl.vertexAttribPointer(location, dimensions, this.gl.FLOAT, false, 0, 0);
             this.gl.enableVertexAttribArray(location);
         }
     }
@@ -179,17 +180,6 @@ class Scene {
     }
 
     getRenderObjects() {
-        return [new RenderObject(this, "lena", [
-            0, 0, 0, 1,
-            0, 1, 0, 1,
-            1, 1, 0, 1,
-            1, 0, 0, 1
-        ], [
-            1, 1, 1, 1,
-            1, 1, 1, 1,
-            1, 1, 1, 1,
-            1, 1, 1, 1
-        ])];
         const segmentCount = 100;
         const step = Math.PI / segmentCount;
         const getRad = n => n * step;
@@ -201,9 +191,9 @@ class Scene {
             const p1 = v.rotate(getRad(n + 0.5))
             const p2 = v.rotate(getRad(n - 0.5));
             return new RenderObject(this, "lena", [
-                p0.x / this.aspectRatio, p0.y, 0,
-                p1.x / this.aspectRatio, p1.y, 0,
-                p2.x / this.aspectRatio, p2.y, 0
+                p0.x / this.aspectRatio, p0.y,
+                p1.x / this.aspectRatio, p1.y,
+                p2.x / this.aspectRatio, p2.y
             ], [
                 Math.random(), Math.random(), Math.random(), 1,
                 Math.random(), Math.random(), Math.random(), 1,
@@ -220,22 +210,24 @@ class RenderObject {
         this.vertices = vertices;
         this.color = color;
         this.textureName = textureName;
-        // this.textureCoords = vertices.filter((_, i) => (i + 1) % 3).map(c => (c + 1) / 2);
-        this.textureCoords = [
-            0, 1,
-            0, 0,
-            1, 1,
-            0, 0,
-            1, 0,
-            1, 1,
-        ];
+        const correctAspectRatio = (c, i) => c * (i % 2 ? 1 : scene.aspectRatio);
+        this.textureCoords = vertices.map(correctAspectRatio).map(c => (c + 1) / 2);
     }
 
     get attributes() {
         return {
-            aVertices: this.vertices,
-            aTextureCoord: this.textureCoords,
-            aColor: this.color
+            aVertices: {
+                dimensions: 2,
+                data: this.vertices
+            },
+            aTextureCoord: {
+                dimensions: 2,
+                data: this.textureCoords
+            },
+            aColor: {
+                dimensions: 4,
+                data: this.color
+            }
         }
     }
 
@@ -248,7 +240,7 @@ class RenderObject {
             texture: this.createBuffer(gl, this.textureCoords)
         };
         for (const attribute in this.attributes)
-            this.buffers[attribute] = this.createBuffer(gl, this.attributes[attribute]);
+            this.buffers[attribute] = this.createBuffer(gl, this.attributes[attribute].data);
     }
 
     createBuffer(gl, data) {
