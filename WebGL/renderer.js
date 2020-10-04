@@ -48,7 +48,7 @@ class Renderer {
         for (const i in this.scene.renderObjects) {
             const renderObject = this.scene.renderObjects[i];
             this.enableAttributes(renderObject);
-            this.setTexture(renderObject)
+            this.setTexture(renderObject.textureSrc)
             this.updateUniforms(currentTime, deltaTime, i);
 
             this.gl.drawArrays(this.gl.TRIANGLES, 0, 4);
@@ -68,11 +68,10 @@ class Renderer {
         }
     }
 
-    setTexture(renderObject) {
-        const texture = this.resourceManager.getTexture(renderObject.textureSrc);
-
+    setTexture(textureSrc) {
+        if (!textureSrc) return;
         this.gl.activeTexture(this.gl.TEXTURE0);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.resourceManager.getTexture(textureSrc));
         this.gl.uniform1i(this.uniformLocations.uSampler, 0);
     }
 
@@ -131,5 +130,46 @@ class ResourceManager {
             this.textures[src] = this.loadTexture(src);
 
         return this.textures[src];
+    }
+}
+
+class RenderObject {
+    constructor(dimensions, vertices, options) {
+        this.attributes = {
+            aVertices: {
+                dimensions: dimensions,
+                data: vertices
+            }
+        };
+        this.attributes.aColor = options.color ?? {
+            dimensions: 4,
+            data: [...Array(vertices.length / dimensions)].flatMap(_ => [1, 1, 1, 1])
+        };
+        // this.attributes.aScale = {
+        //     dimensions: dimensions,
+        //     data: options.scale ?? [...Array(dimensions)].map(_ => 1)
+        // };
+        this.textureSrc = options.texture?.src;
+        if (this.textureSrc) {
+            this.attributes.aTextureCoord = {
+                dimensions: 2,
+                data: options.texture.coords
+            };
+        }
+    }
+
+    createAllBuffers(gl) {
+        this.buffers = {
+            texture: this.createBuffer(gl, this.textureCoords)
+        };
+        for (const attribute in this.attributes)
+            this.buffers[attribute] = this.createBuffer(gl, this.attributes[attribute].data);
+    }
+
+    createBuffer(gl, data) {
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+        return buffer;
     }
 }

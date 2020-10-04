@@ -66,60 +66,19 @@ class Scene {
             const p0 = o.rotate(getRad(n));
             const p1 = v.rotate(getRad(n + 0.5))
             const p2 = v.rotate(getRad(n - 0.5));
-            return new RenderObject(this, "lena512.png", [
+            const vertices = [
                 p0.x / this.aspectRatio, p0.y,
                 p1.x / this.aspectRatio, p1.y,
                 p2.x / this.aspectRatio, p2.y
-            ], [
-                Math.random(), Math.random(), Math.random(), 1,
-                Math.random(), Math.random(), Math.random(), 1,
-                Math.random(), Math.random(), Math.random(), 1
-            ]);
+            ];
+            return new RenderObject(2, vertices, {
+                scale: [1 / this.aspectRatio, 1],
+                texture: {
+                    src: "lena512.png",
+                    coords: vertices.map((c, i) => c * (i % 2 ? 1 : this.aspectRatio)).map(c => (c + 1) / 2)
+                }
+            });
         });
-    }
-}
-
-class RenderObject {
-    constructor(scene, textureSrc, vertices, color) {
-        this.scene = scene;
-
-        this.vertices = vertices;
-        this.color = color;
-        this.textureSrc = textureSrc;
-        const correctAspectRatio = (c, i) => c * (i % 2 ? 1 : scene.aspectRatio);
-        this.textureCoords = vertices.map(correctAspectRatio).map(c => (c + 1) / 2);
-    }
-
-    get attributes() {
-        return {
-            aVertices: {
-                dimensions: 2,
-                data: this.vertices
-            },
-            aTextureCoord: {
-                dimensions: 2,
-                data: this.textureCoords
-            },
-            aColor: {
-                dimensions: 4,
-                data: this.color
-            }
-        }
-    }
-
-    createAllBuffers(gl) {
-        this.buffers = {
-            texture: this.createBuffer(gl, this.textureCoords)
-        };
-        for (const attribute in this.attributes)
-            this.buffers[attribute] = this.createBuffer(gl, this.attributes[attribute].data);
-    }
-
-    createBuffer(gl, data) {
-        const buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
-        return buffer;
     }
 }
 
