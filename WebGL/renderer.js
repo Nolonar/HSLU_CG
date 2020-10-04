@@ -1,22 +1,21 @@
 "use strict";
 
 class Renderer {
-    constructor(canvas, scene) {
+    constructor(canvas, renderObjects, attributes, uniforms) {
         this.isReady = false;
 
         this.gl = createGLContext(canvas);
         loadAndCompileShaders(this.gl, 'VertexShader.glsl', 'FragmentShader.glsl').then(shaderProgram => {
-            this.attributeLocations = this.setUpAttributes(shaderProgram, scene.attributes);
-            this.uniformLocations = this.setUpUniforms(shaderProgram, scene.uniforms);
+            this.attributeLocations = this.setUpAttributes(shaderProgram, attributes);
+            this.uniformLocations = this.setUpUniforms(shaderProgram, uniforms);
 
             this.isReady = true;
         });
         this.resourceManager = new ResourceManager(this);
-        this.scene = scene;
-        this.scene.createAllBuffers(this);
-        this.previousTime = performance.now();
+        this.renderObjects = [];
 
         this.gl.clearColor(0, 0, 0, 1);
+        this.addRenderObjects(renderObjects);
     }
 
     setUpAttributes(shaderProgram, attributes) {
@@ -38,26 +37,42 @@ class Renderer {
         return result;
     }
 
+    addRenderObjects(objectsToAdd) {
+        this.renderObjects.push(...objectsToAdd);
+        objectsToAdd.forEach(o => o.buffers = this.createAllBuffers(o));
+    }
+
+    createAllBuffers(renderObject) {
+        const buffers = {};
+        for (const attribute in renderObject.attributes)
+            buffers[attribute] = this.createBuffer(renderObject.attributes[attribute].data);
+
+        return buffers;
+    }
+
+    createBuffer(data) {
+        const buffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(data), this.gl.STATIC_DRAW);
+        return buffer;
+    }
+
     draw() {
-        requestAnimationFrame(() => this.draw());
         if (!this.isReady) return;
 
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-
-        const currentTime = performance.now();
-        const deltaTime = currentTime - this.previousTime;
-        for (const i in this.scene.renderObjects) {
-            const renderObject = this.scene.renderObjects[i];
-            this.enableAttributes(renderObject);
+        for (const renderObject of this.renderObjects) {
+            this.setAttributes(renderObject);
             this.setTexture(renderObject.textureSrc)
-            this.updateUniforms(currentTime, deltaTime, i);
 
-            this.gl.drawArrays(this.gl.TRIANGLES, 0, 4);
+            renderObject.updateUniforms();
+            this.setUniforms();
+
+            this.gl.drawArrays(this.gl[renderObject.drawMode ?? "TRIANGLES"], 0, 4);
         }
-        this.previousTime = currentTime;
     }
 
-    enableAttributes(renderObject) {
+    setAttributes(renderObject) {
         for (const attribute in renderObject.attributes) {
             const location = this.attributeLocations[attribute];
             const buffer = renderObject.buffers[attribute];
@@ -76,9 +91,7 @@ class Renderer {
         this.gl.uniform1i(this.uniformLocations.uSampler, 0);
     }
 
-    updateUniforms(currentTime, deltaTime, index) {
-        this.scene.updateUniforms(this, currentTime, deltaTime, index);
-
+    setUniforms() {
         const locations = this.uniformLocations;
         const functionMapper = {
             number: (property, n) => this.gl.uniform1f(locations[property], n),
@@ -157,22 +170,10 @@ class RenderObject {
                 data: options.texture.coords
             };
         }
+        this.drawMode = options.drawMode;
 
         this.attributes = { ...options.attributes, ...this.attributes };
     }
 
-    createAllBuffers(gl) {
-        this.buffers = {
-            texture: this.createBuffer(gl, this.textureCoords)
-        };
-        for (const attribute in this.attributes)
-            this.buffers[attribute] = this.createBuffer(gl, this.attributes[attribute].data);
-    }
-
-    createBuffer(gl, data) {
-        const buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
-        return buffer;
-    }
+    updateUniforms() { /* To be overriden */ }
 }

@@ -10,16 +10,17 @@ window.onload = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const renderer = new Renderer(canvas, new Scene(canvas));
-    requestAnimationFrame(() => renderer.draw());
+    const scene = new Scene(canvas);
+    requestAnimationFrame(() => scene.update());
 };
 
 class Scene {
     constructor(canvas) {
         this.canvas = canvas;
         this.onSizeChanged();
+        this.previousTime = performance.now();
 
-        this.renderObjects = this.getRenderObjects();
+        this.renderer = new Renderer(canvas, this.renderObjects, this.attributes, this.uniforms);
     }
 
     get attributes() {
@@ -41,17 +42,21 @@ class Scene {
         this.aspectRatio = this.canvas.width / this.canvas.height;
     }
 
-    updateUniforms(renderer, now, delta, index) {
-        renderer.uniforms.uTime = now * this.rotationsPerSecond / 1000 + index / 4;
+    update() {
+        requestAnimationFrame(() => this.update());
+
+        const currentTime = performance.now();
+        const delta = currentTime - this.previousTime;
+        this.updateWorld(delta);
+        this.renderer.draw();
+        this.previousTime = currentTime;
     }
 
-    createAllBuffers(renderer) {
-        this.renderObjects.forEach(o => o.createAllBuffers(renderer.gl));
-        for (const name in this.textures)
-            this.textures[name] = renderer.loadTexture(this.textures[name]);
+    updateWorld(delta) {
+        // this.renderer.uniforms.uTime = now * this.rotationsPerSecond / 1000 + index / 4;
     }
 
-    getRenderObjects() {
+    get renderObjects() {
         const segmentCount = 100;
         const step = Math.PI / segmentCount;
         const getRad = n => n * step;
@@ -59,15 +64,14 @@ class Scene {
         const o = new Vector2d(0, 0.1);
         const v = new Vector2d(0, 1);
         return [...Array(segmentCount * 2).keys()].filter(n => n % 2 - 1).map(n => {
-            const p0 = o.rotate(getRad(n));
-            const p1 = v.rotate(getRad(n + 0.5))
-            const p2 = v.rotate(getRad(n - 0.5));
             const vertices = [
-                p0.x / this.aspectRatio, p0.y,
-                p1.x / this.aspectRatio, p1.y,
-                p2.x / this.aspectRatio, p2.y
-            ];
+                o.rotate(getRad(n + 0.5)),
+                v.rotate(getRad(n + 0.5)),
+                v.rotate(getRad(n - 0.5)),
+                o.rotate(getRad(n - 0.5))
+            ].flatMap(p => [p.x / this.aspectRatio, p.y]);
             return new RenderObject(2, vertices, {
+                drawMode: "TRIANGLE_FAN",
                 scale: [1 / this.aspectRatio, 1],
                 texture: {
                     src: "textures/lena512.png",
