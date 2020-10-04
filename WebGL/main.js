@@ -23,11 +23,7 @@ class Scene {
     }
 
     get attributes() {
-        return {
-            aVertices: 0,
-            aTextureCoord: 0,
-            aColor: 0
-        }
+        return [];
     }
 
     get uniforms() {

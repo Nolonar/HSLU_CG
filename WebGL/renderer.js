@@ -20,19 +20,20 @@ class Renderer {
     }
 
     setUpAttributes(shaderProgram, attributes) {
-        this.attributes = attributes;
-        return this.getLocations(shaderProgram, "Attrib", attributes);
+        const defaultAttributes = ["aVertices", "aScale", "aTextureCoord", "aColor"];
+        return this.getLocations(shaderProgram, "Attrib", [...attributes, ...defaultAttributes]);
     }
 
     setUpUniforms(shaderProgram, uniforms) {
         this.uniforms = uniforms;
-        return this.getLocations(shaderProgram, "Uniform", { ...uniforms, ...{ uSampler: 0 } });
+        const defaultUniforms = ["uSampler"];
+        return this.getLocations(shaderProgram, "Uniform", [...Object.keys(uniforms), ...defaultUniforms]);
     }
 
-    getLocations(shaderProgram, type, data) {
+    getLocations(shaderProgram, type, names) {
         const result = {};
-        for (const property in data)
-            result[property] = this.gl[`get${type}Location`](shaderProgram, property);
+        for (const name of names)
+            result[name] = this.gl[`get${type}Location`](shaderProgram, name);
 
         return result;
     }
@@ -139,16 +140,16 @@ class RenderObject {
             aVertices: {
                 dimensions: dimensions,
                 data: vertices
+            },
+            aScale: {
+                dimensions: dimensions,
+                data: options.scale ?? [...Array(dimensions)].map(_ => 1)
+            },
+            aColor: options.color ?? {
+                dimensions: 4,
+                data: [...Array(vertices.length / dimensions)].flatMap(_ => [1, 1, 1, 1])
             }
         };
-        this.attributes.aColor = options.color ?? {
-            dimensions: 4,
-            data: [...Array(vertices.length / dimensions)].flatMap(_ => [1, 1, 1, 1])
-        };
-        // this.attributes.aScale = {
-        //     dimensions: dimensions,
-        //     data: options.scale ?? [...Array(dimensions)].map(_ => 1)
-        // };
         this.textureSrc = options.texture?.src;
         if (this.textureSrc) {
             this.attributes.aTextureCoord = {
@@ -156,6 +157,8 @@ class RenderObject {
                 data: options.texture.coords
             };
         }
+
+        this.attributes = { ...options.attributes, ...this.attributes };
     }
 
     createAllBuffers(gl) {
