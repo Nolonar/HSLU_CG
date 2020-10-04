@@ -19,10 +19,6 @@ class Scene {
         this.canvas = canvas;
         this.onSizeChanged();
 
-        this.textures = {
-            lena: "lena512.png"
-        };
-
         this.renderObjects = this.getRenderObjects();
     }
 
@@ -60,7 +56,7 @@ class Scene {
     }
 
     getRenderObjects() {
-        const segmentCount = 1000;
+        const segmentCount = 100;
         const step = Math.PI / segmentCount;
         const getRad = n => n * step;
 
@@ -70,7 +66,7 @@ class Scene {
             const p0 = o.rotate(getRad(n));
             const p1 = v.rotate(getRad(n + 0.5))
             const p2 = v.rotate(getRad(n - 0.5));
-            return new RenderObject(this, "lena", [
+            return new RenderObject(this, "lena512.png", [
                 p0.x / this.aspectRatio, p0.y,
                 p1.x / this.aspectRatio, p1.y,
                 p2.x / this.aspectRatio, p2.y
@@ -84,12 +80,12 @@ class Scene {
 }
 
 class RenderObject {
-    constructor(scene, textureName, vertices, color) {
+    constructor(scene, textureSrc, vertices, color) {
         this.scene = scene;
 
         this.vertices = vertices;
         this.color = color;
-        this.textureName = textureName;
+        this.textureSrc = textureSrc;
         const correctAspectRatio = (c, i) => c * (i % 2 ? 1 : scene.aspectRatio);
         this.textureCoords = vertices.map(correctAspectRatio).map(c => (c + 1) / 2);
     }
@@ -109,10 +105,6 @@ class RenderObject {
                 data: this.color
             }
         }
-    }
-
-    get texture() {
-        return this.scene.textures[this.textureName];
     }
 
     createAllBuffers(gl) {

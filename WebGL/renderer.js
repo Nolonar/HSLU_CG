@@ -11,6 +11,7 @@ class Renderer {
 
             this.isReady = true;
         });
+        this.resourceManager = new ResourceManager(this);
         this.scene = scene;
         this.scene.createAllBuffers(this);
         this.previousTime = performance.now();
@@ -34,30 +35,6 @@ class Renderer {
             result[property] = this.gl[`get${type}Location`](shaderProgram, property);
 
         return result;
-    }
-
-    loadTexture(src) {
-        const texture = this.gl.createTexture();
-        this.loadImage(src).then(img => {
-            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-            // set parameters for the texture
-            this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
-            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_NEAREST);
-            this.gl.generateMipmap(this.gl.TEXTURE_2D);
-            // turn texture off again
-            this.gl.bindTexture(this.gl.TEXTURE_2D, null);
-        });
-        return texture;
-    }
-
-    async loadImage(src) {
-        return new Promise(resolve => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.src = src;
-        });
     }
 
     draw() {
@@ -92,8 +69,7 @@ class Renderer {
     }
 
     setTexture(renderObject) {
-        const texture = renderObject.texture;
-        if (typeof texture === "string") return;
+        const texture = this.resourceManager.getTexture(renderObject.textureSrc);
 
         this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
@@ -117,5 +93,43 @@ class Renderer {
             const value = this.uniforms[property];
             functionMapper[typeof value](property, value);
         }
+    }
+}
+
+class ResourceManager {
+    constructor(parent) {
+        this.parent = parent;
+        this.textures = {};
+    }
+
+    preloadTextures(sources) {
+        for (const src of sources)
+            this.textures[src] = this.loadTexture(src);
+    }
+
+    loadTexture(src) {
+        const gl = this.parent.gl;
+        const texture = gl.createTexture();
+        const img = new Image();
+        img.onload = () => {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            // set parameters for the texture
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+            gl.generateMipmap(gl.TEXTURE_2D);
+            // turn texture off again
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        };
+        img.src = src;
+        return texture;
+    }
+
+    getTexture(src) {
+        if (!this.textures[src])
+            this.textures[src] = this.loadTexture(src);
+
+        return this.textures[src];
     }
 }
