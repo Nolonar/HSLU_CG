@@ -187,6 +187,7 @@ class RenderObject {
     }
 }
 
+/// Wrapper for gl-matrix mat3
 class Matrix3 {
     constructor(data) {
         this.data = data;
