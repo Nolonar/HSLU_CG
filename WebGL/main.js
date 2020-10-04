@@ -5,20 +5,20 @@
 // WebGL Exercises
 //
 
+let canvas = null;
 window.onload = () => {
-    const canvas = document.getElementById("myCanvas");
+    canvas = document.getElementById("myCanvas");
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const scene = new Scene(canvas);
+    const scene = new Scene();
     requestAnimationFrame(() => scene.update());
 };
 
 class Scene {
-    constructor(canvas) {
-        this.canvas = canvas;
-        this.onSizeChanged();
+    constructor() {
         this.previousTime = performance.now();
+        this.onSizeChanged();
 
         this.renderer = new Renderer(canvas, this.renderObjects, this.attributes, this.uniforms);
     }
@@ -39,7 +39,7 @@ class Scene {
     }
 
     onSizeChanged() {
-        this.aspectRatio = this.canvas.width / this.canvas.height;
+        this.aspectRatio = canvas.width / canvas.height;
     }
 
     update() {
@@ -57,27 +57,79 @@ class Scene {
     }
 
     get renderObjects() {
-        const segmentCount = 100;
-        const step = Math.PI / segmentCount;
-        const getRad = n => n * step;
+        return [
+            new Paddle(0),
+            new Paddle(1),
+            new Ball(),
+            new MidLine()
+        ];
+    }
 
-        const o = new Vector2d(0, 0.1);
-        const v = new Vector2d(0, 1);
-        return [...Array(segmentCount * 2).keys()].filter(n => n % 2 - 1).map(n => {
-            const vertices = [
-                o.rotate(getRad(n + 0.5)),
-                v.rotate(getRad(n + 0.5)),
-                v.rotate(getRad(n - 0.5)),
-                o.rotate(getRad(n - 0.5))
-            ].flatMap(p => [p.x / this.aspectRatio, p.y]);
-            return new RenderObject(2, vertices, {
-                drawMode: "TRIANGLE_FAN",
-                scale: [1 / this.aspectRatio, 1],
-                texture: {
-                    src: "textures/lena512.png",
-                    coords: vertices.map((c, i) => c * (i % 2 ? 1 : this.aspectRatio)).map(c => (c + 1) / 2)
-                }
-            });
+    static get scaling() {
+        return {
+            x: 2 / canvas.width,
+            y: 2 / canvas.height
+        };
+    }
+}
+
+class Paddle extends RenderObject {
+    constructor(playerNr) {
+        const playerColors = [
+            [1, 0, 0],  // Player 1
+            [0, 0, 1]   // Player 2
+        ];
+        const screenEdge = canvas.width / 2;
+        const playerXPos = screenEdge - 200;
+        const playerStartingPos = [
+            { x: -playerXPos, y: 0 },  // Player 1
+            { x: playerXPos, y: 0 }    // Player 2
+        ];
+
+        const vertices = [
+            -25, -200,
+            25, -200,
+            25, 200,
+            -25, 200
+        ];
+        super(2, vertices, {
+            color: {
+                dimensions: 3,
+                data: [...Array(vertices.length / 2)].flatMap(_ => playerColors[playerNr])
+            },
+            scale: Scene.scaling,
+            pos: playerStartingPos[playerNr]
+        });
+    }
+}
+
+class Ball extends RenderObject {
+    constructor() {
+        const segmentCount = 100;
+        const step = 2 * Math.PI / segmentCount;
+        const v = new Vector2d(0, 25);
+        const vertices = [...Array(segmentCount).keys()].flatMap(n => {
+            const p = v.rotate(n * step);
+            return [p.x, p.y];
+        });
+
+        super(2, vertices, {
+            scale: Scene.scaling,
+            pos: { x: 0, y: 0 }
+        });
+    }
+}
+
+class MidLine extends RenderObject {
+    constructor() {
+        const screenEdge = canvas.height / 2;
+        super(2, [
+            -1, -screenEdge,
+            1, -screenEdge,
+            1, screenEdge,
+            -1, screenEdge
+        ], {
+            scale: Scene.scaling
         });
     }
 }

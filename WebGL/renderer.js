@@ -19,13 +19,13 @@ class Renderer {
     }
 
     setUpAttributes(shaderProgram, attributes) {
-        const defaultAttributes = ["aVertices", "aScale", "aTextureCoord", "aColor"];
+        const defaultAttributes = ["aVertices", "aTextureCoord", "aColor"];
         return this.getLocations(shaderProgram, "Attrib", [...attributes, ...defaultAttributes]);
     }
 
     setUpUniforms(shaderProgram, uniforms) {
         this.uniforms = uniforms;
-        const defaultUniforms = ["uSampler"];
+        const defaultUniforms = ["uSampler", "uProjection", "uTransformation"];
         return this.getLocations(shaderProgram, "Uniform", [...Object.keys(uniforms), ...defaultUniforms]);
     }
 
@@ -65,10 +65,12 @@ class Renderer {
             this.setAttributes(renderObject);
             this.setTexture(renderObject.textureSrc)
 
-            renderObject.updateUniforms();
+            renderObject.updateUniforms(this.uniforms);
             this.setUniforms();
 
-            this.gl.drawArrays(this.gl[renderObject.drawMode ?? "TRIANGLES"], 0, 4);
+            const verticesAttr = renderObject.attributes.aVertices;
+            const verticesCount = verticesAttr.data.length / verticesAttr.dimensions;
+            this.gl.drawArrays(this.gl[renderObject.drawMode], 0, verticesCount);
         }
     }
 
@@ -98,6 +100,8 @@ class Renderer {
             object: (property, o) => {
                 if (Array.isArray(o))
                     this.gl[`uniform${o.length}fv`](locations[property], o);
+                if (o instanceof Matrix3)
+                    this.gl.uniformMatrix3fv(locations[property], false, o.data);
                 else
                     /* no clue how to handle this type of uniform */;
             }
@@ -154,26 +158,49 @@ class RenderObject {
                 dimensions: dimensions,
                 data: vertices
             },
-            aScale: {
-                dimensions: dimensions,
-                data: options.scale ?? [...Array(dimensions)].map(_ => 1)
-            },
-            aColor: options.color ?? {
+            aColor: options?.color ?? {
                 dimensions: 4,
                 data: [...Array(vertices.length / dimensions)].flatMap(_ => [1, 1, 1, 1])
             }
         };
-        this.textureSrc = options.texture?.src;
+        this.textureSrc = options?.texture?.src;
         if (this.textureSrc) {
             this.attributes.aTextureCoord = {
                 dimensions: 2,
                 data: options.texture.coords
             };
         }
-        this.drawMode = options.drawMode;
+        this.drawMode = options?.drawMode ?? "TRIANGLE_FAN";
+        this.pos = options?.pos ?? {
+            x: 0, y: 0
+        };
+        this.scaling = options?.scale ?? {
+            x: 1, y: 1
+        };
 
-        this.attributes = { ...options.attributes, ...this.attributes };
+        this.attributes = { ...options?.attributes, ...this.attributes };
     }
 
-    updateUniforms() { /* To be overriden */ }
+    updateUniforms(uniforms) {
+        uniforms.uProjection = Matrix3.fromScaling(this.scaling.x, this.scaling.y);
+        uniforms.uTransformation = Matrix3.fromTranslation(this.pos.x, this.pos.y);
+    }
+}
+
+class Matrix3 {
+    constructor(data) {
+        this.data = data;
+    }
+
+    static fromScaling(x, y) {
+        const data = mat3.create();
+        mat3.fromScaling(data, [x, y]);
+        return new Matrix3(data);
+    }
+
+    static fromTranslation(x, y) {
+        const data = mat3.create();
+        mat3.fromTranslation(data, [x, y]);
+        return new Matrix3(data);
+    }
 }

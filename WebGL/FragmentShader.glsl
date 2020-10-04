@@ -19,6 +19,6 @@ void main() {
     vec3 hsv = vec3(hue, 1.0, 1.0);
     //gl_FragColor = vec4(hsv2rgb(hsv), 1.0);
     //gl_FragColor = vec4(uColor, 1.0);
-    //gl_FragColor = vColor;
-    gl_FragColor = texture2D(uSampler, vTextureCoord);
+    gl_FragColor = vColor;
+    //gl_FragColor = texture2D(uSampler, vTextureCoord);
 }
