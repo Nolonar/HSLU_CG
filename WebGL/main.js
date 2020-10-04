@@ -70,7 +70,7 @@ class Scene {
             return new RenderObject(2, vertices, {
                 scale: [1 / this.aspectRatio, 1],
                 texture: {
-                    src: "lena512.png",
+                    src: "textures/lena512.png",
                     coords: vertices.map((c, i) => c * (i % 2 ? 1 : this.aspectRatio)).map(c => (c + 1) / 2)
                 }
             });
