@@ -52,6 +52,10 @@ class Scene {
         ];
     }
 
+    get mousePlayer() {
+        return this.humanPlayers[0];
+    }
+
     onSizeChanged() {
         this.aspectRatio = canvas.width / canvas.height;
     }
@@ -87,11 +91,11 @@ class Scene {
     }
 
     onMouseMove(e) {
-        this.humanPlayers[0].pos.y = this.getCoordinatesFromMouse(e.x, e.y).y;
+        this.mousePlayer.pos.y = this.getCoordinatesFromMouse(e.x, e.y).y;
     }
 
     onClick() {
-        this.ball.isMoving = true;
+        this.ball.direction = this.ball.getBounceDirection(this.mousePlayer);
     }
 }
 
@@ -135,17 +139,21 @@ class Paddle extends RenderObject {
     }
 
     makeMove(delta, ball) {
-        if (!this.isBallApproaching(ball))
-            return;
+        const targetY = this.isBallApproaching(ball) ? ball.pos.y : 0;
+        this.moveTowards(targetY, this.moveSpeed * delta);
+    }
 
-        const moveSpeed = this.moveSpeed * delta;
-        const diff = ball.pos.y - this.pos.y;
-        if (Math.abs(diff) >= moveSpeed)
-            this.pos.y += (diff > 0) ? moveSpeed : -moveSpeed;
+    moveTowards(targetY, speed) {
+        const diff = targetY - this.pos.y;
+        const distance = Math.abs(diff);
+        this.pos.y = distance < speed ? targetY : this.pos.y + speed * diff / distance;
     }
 
     isBallApproaching(ball) {
-        return ball.isMoving;
+        const diff = this.pos.x - ball.pos.x;
+        // if different signs, multiplication will be negative, otherwise positive.
+        const isSameSign = diff * ball.direction.x >= 0;
+        return ball.isMoving && isSameSign;
     }
 }
 
@@ -166,10 +174,12 @@ class Ball extends RenderObject {
         });
 
         this.radius = radius;
-        this.isMoving = false;
-        this.speed = 100 / SECOND;
-        this.direction = new Vector2d(1, 0.1).normalize();
         this.updateScreenEdge();
+        this.reset();
+    }
+
+    get defaultSpeed() {
+        return 100 / SECOND;
     }
 
     get speedMultiplier() {
@@ -178,6 +188,16 @@ class Ball extends RenderObject {
 
     get isOut() {
         return Math.abs(this.pos.x) >= this.screenEdge.x;
+    }
+
+    get isMoving() {
+        return this.direction.x || this.direction.y;
+    }
+
+    reset() {
+        this.direction = new Vector2d(0, 0);
+        this.pos = new Vector2d(0, 0);
+        this.speed = this.defaultSpeed;
     }
 
     updateScreenEdge() {
@@ -191,11 +211,6 @@ class Ball extends RenderObject {
         this.bounceFromScreenEdge();
     }
 
-    reset() {
-        this.isMoving = false;
-        this.pos = new Vector2d(0, 0);
-    }
-
     isCollisionPossible(player) {
         const difference = player.pos.subtract(this.pos);
         return Math.abs(difference.x) <= this.radius + player.width / 2
@@ -203,8 +218,12 @@ class Ball extends RenderObject {
     }
 
     bounce(player) {
-        this.direction = this.pos.subtract(player.pos).normalize();
+        this.direction = this.getBounceDirection(player);
         this.speed *= this.speedMultiplier;
+    }
+
+    getBounceDirection(player) {
+        return this.pos.subtract(player.pos).normalize();
     }
 
     bounceFromScreenEdge() {
