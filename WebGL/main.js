@@ -20,7 +20,7 @@ class Scene {
         this.onSizeChanged();
 
         this.ball = new Ball();
-        this.player1 = new Paddle(0);
+        this.player1 = new Paddle(0, true);
         this.player2 = new Paddle(1, true);
         this.allPlayers = [this.player1, this.player2];
         this.cpuPlayers = this.allPlayers.filter(p => p.isCpu);
@@ -29,6 +29,8 @@ class Scene {
         this.renderer = new Renderer(canvas, this.renderObjects, this.attributes, this.uniforms);
         canvas.onmousemove = this.onMouseMove.bind(this);
         canvas.onclick = this.onClick.bind(this);
+
+        this.reset();
     }
 
     static get scaling() {
@@ -67,6 +69,15 @@ class Scene {
         };
     }
 
+    reset() {
+        this.ball.reset();
+        if (!this.mousePlayer) {
+            setTimeout(() => {
+                this.startBall(this.allPlayers[0]);
+            }, 1000);
+        }
+    }
+
     update() {
         requestAnimationFrame(() => this.update());
 
@@ -79,7 +90,7 @@ class Scene {
 
     updateWorld(delta) {
         if (this.ball.isOut)
-            this.ball.reset();
+            this.reset();
 
         this.cpuPlayers.forEach(p => p.makeMove(delta, this.ball));
 
@@ -90,12 +101,18 @@ class Scene {
         this.ball.updatePosition(delta);
     }
 
+    startBall(player) {
+        this.ball.direction = this.ball.getBounceDirection(player);
+    }
+
     onMouseMove(e) {
-        this.mousePlayer.pos.y = this.getCoordinatesFromMouse(e.x, e.y).y;
+        if (this.mousePlayer)
+            this.mousePlayer.pos.y = this.getCoordinatesFromMouse(e.x, e.y).y;
     }
 
     onClick() {
-        this.ball.direction = this.ball.getBounceDirection(this.mousePlayer);
+        if (this.mousePlayer)
+            this.startBall(this.mousePlayer);
     }
 }
 
@@ -135,7 +152,7 @@ class Paddle extends RenderObject {
     }
 
     get moveSpeed() {
-        return 200 / SECOND;
+        return 400 / SECOND;
     }
 
     makeMove(delta, ball) {
@@ -179,11 +196,23 @@ class Ball extends RenderObject {
     }
 
     get defaultSpeed() {
-        return 100 / SECOND;
+        return 300 / SECOND;
     }
 
     get speedMultiplier() {
-        return 1.5;
+        return 1.2;
+    }
+
+    get bounceSpread() {
+        return 30;
+    }
+
+    get randomBounceSpread() {
+        return Math.random() * this.bounceSpread - this.bounceSpread / 2;
+    }
+
+    get randomBounceSpreadRad() {
+        return this.randomBounceSpread * 2 * Math.PI / 360;
     }
 
     get isOut() {
@@ -223,7 +252,7 @@ class Ball extends RenderObject {
     }
 
     getBounceDirection(player) {
-        return this.pos.subtract(player.pos).normalize();
+        return this.pos.subtract(player.pos).rotate(this.randomBounceSpreadRad).normalize();
     }
 
     bounceFromScreenEdge() {
