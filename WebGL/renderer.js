@@ -171,12 +171,8 @@ class RenderObject {
             };
         }
         this.drawMode = options?.drawMode ?? "TRIANGLE_FAN";
-        this.pos = options?.pos ?? {
-            x: 0, y: 0
-        };
-        this.scaling = options?.scale ?? {
-            x: 1, y: 1
-        };
+        this.pos = options?.pos ?? new Vector2d(0, 0);
+        this.scaling = options?.scale ?? new Vector2d(1, 1);
 
         this.attributes = { ...options?.attributes, ...this.attributes };
     }
@@ -184,6 +180,78 @@ class RenderObject {
     updateUniforms(uniforms) {
         uniforms.uProjection = Matrix3.fromScaling(this.scaling.x, this.scaling.y);
         uniforms.uTransformation = Matrix3.fromTranslation(this.pos.x, this.pos.y);
+    }
+}
+
+/// Wrapper for gl-matrix vec2
+class Vector2d {
+    constructor(x, y) {
+        this.data = vec2.fromValues(x, y);
+    }
+
+    static fromVec2(vec) {
+        return new Vector2d(vec[0], vec[1]);
+    }
+
+    get x() { return this.data[0]; }
+    get y() { return this.data[1]; }
+    set x(val) { this.data[0] = val; }
+    set y(val) { this.data[1] = val; }
+
+    clone() {
+        return vec2.clone(this.data);
+    }
+
+    add(other) {
+        const result = vec2.create();
+        vec2.add(result, this.data, other.data);
+        return Vector2d.fromVec2(result);
+    }
+
+    subtract(other) {
+        const result = vec2.create();
+        vec2.subtract(result, this.data, other.data);
+        return Vector2d.fromVec2(result);
+    }
+
+    negate() {
+        const result = vec2.create();
+        vec2.negate(result, this.data);
+        return Vector2d.fromVec2(result);
+    }
+
+    inverse() {
+        const result = vec2.create();
+        vec2.inverse(result, this.data);
+        return Vector2d.fromVec2(result);
+    }
+
+    normalize() {
+        const result = vec2.create();
+        vec2.normalize(result, this.data);
+        return Vector2d.fromVec2(result);
+    }
+
+    rotate(rad) {
+        const rotate = mat2.create();
+        mat2.fromRotation(rotate, rad);
+
+        const result = vec2.create();
+        vec2.transformMat2(result, this.data, rotate);
+
+        return Vector2d.fromVec2(result);
+    }
+
+    scale(scalar) {
+        const result = vec2.create();
+        vec2.scale(result, this.data, scalar);
+        return Vector2d.fromVec2(result);
+    }
+
+    scaleAndAdd(other, scalar) {
+        const result = vec2.create();
+        vec2.scaleAndAdd(result, this.data, other.data, scalar);
+        return Vector2d.fromVec2(result);
     }
 }
 
