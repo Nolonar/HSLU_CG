@@ -20,15 +20,15 @@ class Scene {
         this.onSizeChanged();
 
         this.ball = new Ball();
-        this.player1 = new Paddle(0, true);
+        this.player1 = new Paddle(0);
         this.player2 = new Paddle(1, true);
         this.allPlayers = [this.player1, this.player2];
-        this.cpuPlayers = this.allPlayers.filter(p => p.isCpu);
-        this.humanPlayers = this.allPlayers.filter(p => !p.isCpu);
+        this.refreshPlayers();
 
         this.renderer = new Renderer(canvas, this.renderObjects, this.attributes, this.uniforms);
         canvas.onmousemove = this.onMouseMove.bind(this);
         canvas.onclick = this.onClick.bind(this);
+        document.onkeypress = this.onKeyPress.bind(this);
 
         this.reset();
     }
@@ -78,6 +78,13 @@ class Scene {
         }
     }
 
+    refreshPlayers() {
+        this.cpuPlayers = this.allPlayers.filter(p => p.isCpu);
+        this.humanPlayers = this.allPlayers.filter(p => !p.isCpu);
+        if (!this.mousePlayer && !this.ball.isMoving)
+            this.startBall(this.allPlayers[0]);
+    }
+
     update() {
         requestAnimationFrame(() => this.update());
 
@@ -111,8 +118,19 @@ class Scene {
     }
 
     onClick() {
-        if (this.mousePlayer)
+        if (this.mousePlayer && !this.ball.isMoving)
             this.startBall(this.mousePlayer);
+    }
+
+    onKeyPress(e) {
+        const command = {
+            a: () => {
+                this.player1.isCpu = !this.player1.isCpu;
+                this.refreshPlayers();
+            }
+        }[e.key];
+
+        command?.call();
     }
 }
 
@@ -247,7 +265,8 @@ class Ball extends RenderObject {
     }
 
     bounce(player) {
-        this.direction = this.getBounceDirection(player);
+        this.direction.x = -this.direction.x;
+        this.direction = this.direction.add(this.getBounceDirection(player)).normalize();
         this.speed *= this.speedMultiplier;
     }
 
