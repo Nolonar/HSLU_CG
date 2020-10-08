@@ -10,13 +10,49 @@ window.onload = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
+    Input.registerKeyEvents();
+
     const scene = new Scene();
-    requestAnimationFrame(() => scene.update());
+    requestAnimationFrame(scene.update.bind(scene));
 };
+
+class Input {
+    constructor() {
+        throw new Error("Cannot instantiate static class.");
+    }
+
+    static pressed = {};
+
+    static get keys() {
+        return {
+            LEFT: 37,
+            UP: 38,
+            RIGHT: 39,
+            DOWN: 40
+        };
+    }
+
+    static registerKeyEvents() {
+        document.onkeydown = Input.onKeyDown;
+        document.onkeyup = Input.onKeyUp;
+    }
+
+    static onKeyDown(e) {
+        Input.pressed[e.keyCode] = true;
+    }
+
+    static onKeyUp(e) {
+        Input.pressed[e.keyCode] = false;
+    }
+
+    static isPressed(keyCode) {
+        return !!Input.pressed[keyCode];
+    }
+}
 
 class Scene {
     constructor() {
-        this.previousTime = performance.now();
+        this.previousTime = 0;
         this.onSizeChanged();
 
         this.ball = new Ball();
@@ -58,6 +94,10 @@ class Scene {
         return this.humanPlayers[0];
     }
 
+    get keyboardPlayer() {
+        return this.humanPlayers[0];
+    }
+
     onSizeChanged() {
         this.aspectRatio = canvas.width / canvas.height;
     }
@@ -85,10 +125,9 @@ class Scene {
             this.startBall(this.allPlayers[0]);
     }
 
-    update() {
-        requestAnimationFrame(() => this.update());
+    update(currentTime) {
+        requestAnimationFrame(this.update.bind(this));
 
-        const currentTime = performance.now();
         const delta = currentTime - this.previousTime;
         this.updateWorld(delta);
         this.renderer.draw();
@@ -100,6 +139,7 @@ class Scene {
             this.reset();
 
         this.cpuPlayers.forEach(p => p.makeMove(delta, this.ball));
+        this.keyboardPlayer?.processKeyboardInput(delta);
 
         const playerCollided = this.allPlayers.find(p => this.ball.isCollisionPossible(p));
         if (playerCollided)
@@ -109,12 +149,13 @@ class Scene {
     }
 
     startBall(player) {
-        this.ball.direction = this.ball.getBounceDirection(player);
+        if (player)
+            this.ball.direction = this.ball.getBounceDirection(player);
     }
 
     onMouseMove(e) {
         if (this.mousePlayer)
-            this.mousePlayer.pos.y = this.getCoordinatesFromMouse(e.x, e.y).y;
+            this.mousePlayer.moveTowards(this.getCoordinatesFromMouse(e.x, e.y).y, Number.MAX_VALUE);
     }
 
     onClick() {
@@ -127,7 +168,8 @@ class Scene {
             a: () => {
                 this.player1.isCpu = !this.player1.isCpu;
                 this.refreshPlayers();
-            }
+            },
+            Enter: () => this.startBall(this.keyboardPlayer)
         }[e.key];
 
         command?.call();
@@ -167,10 +209,30 @@ class Paddle extends RenderObject {
         this.width = size.x;
         this.height = size.y;
         this.isCpu = isCpu ?? false;
+
+        this.updateScreenEdge();
     }
 
     get moveSpeed() {
         return 400 / SECOND;
+    }
+
+    updateScreenEdge() {
+        this.screenEdge = new Vector2d((canvas.width - this.width) / 2, (canvas.height - this.height) / 2);
+    }
+
+    keepInViewport() {
+        this.pos.y = Math.max(-this.screenEdge.y, Math.min(this.screenEdge.y, this.pos.y));
+    }
+
+    processKeyboardInput(delta) {
+        const speed = this.moveSpeed * delta;
+        if (Input.isPressed(Input.keys.UP))
+            this.pos.y += speed;
+        if (Input.isPressed(Input.keys.DOWN))
+            this.pos.y -= speed;
+
+        this.keepInViewport();
     }
 
     makeMove(delta, ball) {
@@ -182,6 +244,7 @@ class Paddle extends RenderObject {
         const diff = targetY - this.pos.y;
         const distance = Math.abs(diff);
         this.pos.y = distance < speed ? targetY : this.pos.y + speed * diff / distance;
+        this.keepInViewport();
     }
 
     isBallApproaching(ball) {

@@ -61,29 +61,29 @@ class Renderer {
         if (!this.isReady) return;
 
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-        for (const renderObject of this.renderObjects) {
-            this.setAttributes(renderObject);
-            this.setTexture(renderObject.textureSrc)
+        this.renderObjects.forEach(o => this.drawObject(o));
+    }
 
-            renderObject.updateUniforms(this.uniforms);
-            this.setUniforms();
+    drawObject(renderObject) {
+        this.setAttributes(renderObject);
+        this.setTexture(renderObject.textureSrc)
+        renderObject.updateUniforms(this.uniforms);
+        this.setUniforms();
 
-            const verticesAttr = renderObject.attributes.aVertices;
-            const verticesCount = verticesAttr.data.length / verticesAttr.dimensions;
-            this.gl.drawArrays(this.gl[renderObject.drawMode], 0, verticesCount);
-        }
+        const verticesAttr = renderObject.attributes.aVertices;
+        const verticesCount = verticesAttr.data.length / verticesAttr.dimensions;
+        this.gl.drawArrays(this.gl[renderObject.drawMode], 0, verticesCount);
     }
 
     setAttributes(renderObject) {
-        for (const attribute in renderObject.attributes) {
-            const location = this.attributeLocations[attribute];
-            const buffer = renderObject.buffers[attribute];
-            const dimensions = renderObject.attributes[attribute].dimensions;
+        for (const attr in renderObject.attributes)
+            this.setAttribute(this.attributeLocations[attr], renderObject.buffers[attr], renderObject.attributes[attr].dimensions);
+    }
 
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-            this.gl.vertexAttribPointer(location, dimensions, this.gl.FLOAT, false, 0, 0);
-            this.gl.enableVertexAttribArray(location);
-        }
+    setAttribute(location, buffer, dimensions) {
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+        this.gl.vertexAttribPointer(location, dimensions, this.gl.FLOAT, false, 0, 0);
+        this.gl.enableVertexAttribArray(location);
     }
 
     setTexture(textureSrc) {
