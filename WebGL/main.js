@@ -221,6 +221,10 @@ class Ball extends RenderObject {
         return 1.2;
     }
 
+    get maxSpeed() {
+        return 10 * this.defaultSpeed;
+    }
+
     get bounceSpread() {
         return 30;
     }
@@ -267,7 +271,7 @@ class Ball extends RenderObject {
     bounce(player) {
         this.direction.x = -this.direction.x;
         this.direction = this.direction.add(this.getBounceDirection(player)).normalize();
-        this.speed *= this.speedMultiplier;
+        this.speed = Math.min(this.speed * this.speedMultiplier, this.maxSpeed);
     }
 
     getBounceDirection(player) {
