@@ -1,13 +1,13 @@
-attribute vec2 aVertices;
-attribute vec4 aColor;
+attribute vec3 vertices;
+attribute vec4 color;
 
-uniform mat3 uProjection;
-uniform mat3 uTransformation;
+uniform mat4 uProjection;
+uniform mat4 uCamera;
+uniform mat4 uModel;
 
 varying vec4 vColor;
 
 void main () {
-    vec3 pos = uProjection * uTransformation * vec3(aVertices, 1.0);
-    gl_Position = vec4(pos.xy, 0.0, pos.z);
-    vColor = aColor;
+    gl_Position = uProjection * uCamera * uModel * vec4(vertices, 1.0);
+    vColor = color;
 }

@@ -12,7 +12,7 @@ window.onload = () => {
 
     Input.registerKeyEvents();
 
-    const scene = new Scene();
+    const scene = new Game();
     requestAnimationFrame(scene.update.bind(scene));
 };
 
@@ -50,316 +50,58 @@ class Input {
     }
 }
 
-class Scene {
+class Game extends Scene {
     constructor() {
-        this.previousTime = 0;
-        this.onSizeChanged();
-
-        this.ball = new Ball();
-        this.player1 = new Paddle(0);
-        this.player2 = new Paddle(1, true);
-        this.allPlayers = [this.player1, this.player2];
-        this.refreshPlayers();
-
-        this.renderer = new Renderer(canvas, this.renderObjects, this.attributes, this.uniforms);
-        canvas.onmousemove = this.onMouseMove.bind(this);
-        canvas.onclick = this.onClick.bind(this);
-        document.onkeypress = this.onKeyPress.bind(this);
-
-        this.reset();
-    }
-
-    static get scaling() {
-        return new Vector2d(canvas.width, canvas.height).inverse().scale(2);
-    }
-
-    get attributes() {
-        return [];
-    }
-
-    get uniforms() {
-        return {};
+        super(canvas);
+        this.cube = new Cube();
     }
 
     get renderObjects() {
-        return [
-            this.player1,
-            this.player2,
-            this.ball,
-            new MidLine()
-        ];
-    }
-
-    get mousePlayer() {
-        return this.humanPlayers[0];
-    }
-
-    get keyboardPlayer() {
-        return this.humanPlayers[0];
-    }
-
-    onSizeChanged() {
-        this.aspectRatio = canvas.width / canvas.height;
-    }
-
-    getCoordinatesFromMouse(x, y) {
-        return {
-            x: x - canvas.width / 2,
-            y: -(y - canvas.height / 2)
-        };
-    }
-
-    reset() {
-        this.ball.reset();
-        if (!this.mousePlayer) {
-            setTimeout(() => {
-                this.startBall(this.allPlayers[0]);
-            }, 1000);
-        }
-    }
-
-    refreshPlayers() {
-        this.cpuPlayers = this.allPlayers.filter(p => p.isCpu);
-        this.humanPlayers = this.allPlayers.filter(p => !p.isCpu);
-        if (!this.mousePlayer && !this.ball.isMoving)
-            this.startBall(this.allPlayers[0]);
-    }
-
-    update(currentTime) {
-        requestAnimationFrame(this.update.bind(this));
-
-        const delta = currentTime - this.previousTime;
-        this.updateWorld(delta);
-        this.renderer.draw();
-        this.previousTime = currentTime;
+        return super.renderObjects.concat([
+            this.cube
+        ]);
     }
 
     updateWorld(delta) {
-        if (this.ball.isOut)
-            this.reset();
-
-        this.cpuPlayers.forEach(p => p.makeMove(delta, this.ball));
-        this.keyboardPlayer?.processKeyboardInput(delta);
-
-        const playerCollided = this.allPlayers.find(p => this.ball.isCollisionPossible(p));
-        if (playerCollided)
-            this.ball.bounce(playerCollided);
-
-        this.ball.updatePosition(delta);
-    }
-
-    startBall(player) {
-        if (player)
-            this.ball.direction = this.ball.getBounceDirection(player);
-    }
-
-    onMouseMove(e) {
-        if (this.mousePlayer)
-            this.mousePlayer.moveTowards(this.getCoordinatesFromMouse(e.x, e.y).y, Number.MAX_VALUE);
-    }
-
-    onClick() {
-        if (this.mousePlayer && !this.ball.isMoving)
-            this.startBall(this.mousePlayer);
-    }
-
-    onKeyPress(e) {
-        const command = {
-            a: () => {
-                this.player1.isCpu = !this.player1.isCpu;
-                this.refreshPlayers();
-            },
-            Enter: () => this.startBall(this.keyboardPlayer)
-        }[e.key];
-
-        command?.call();
+        this.cube.rotation = this.cube.rotation.rotateY(-this.cube.rotationSpeed * delta);
     }
 }
 
-class Paddle extends RenderObject {
-    constructor(playerNr, isCpu) {
-        const playerColors = [
-            [1, 0, 0],  // Player 1
-            [0, 0, 1]   // Player 2
-        ];
-        const screenEdge = canvas.width / 2;
-        const playerXPos = screenEdge - 200;
-        const playerStartingPos = [
-            new Vector2d(-playerXPos, 0),   // Player 1
-            new Vector2d(playerXPos, 0)     // Player 2
-        ];
-
-        const size = new Vector2d(50, 400);
-        const halfSize = size.scale(1 / 2);
-        const vertices = [
-            -halfSize.x, -halfSize.y,
-            halfSize.x, -halfSize.y,
-            halfSize.x, halfSize.y,
-            -halfSize.x, halfSize.y
-        ];
-        super(2, vertices, {
-            color: {
-                dimensions: 3,
-                data: [...Array(vertices.length / 2)].flatMap(_ => playerColors[playerNr])
-            },
-            scale: Scene.scaling,
-            pos: playerStartingPos[playerNr]
-        });
-
-        this.width = size.x;
-        this.height = size.y;
-        this.isCpu = isCpu ?? false;
-
-        this.updateScreenEdge();
-    }
-
-    get moveSpeed() {
-        return 400 / SECOND;
-    }
-
-    updateScreenEdge() {
-        this.screenEdge = new Vector2d((canvas.width - this.width) / 2, (canvas.height - this.height) / 2);
-    }
-
-    keepInViewport() {
-        this.pos.y = Math.max(-this.screenEdge.y, Math.min(this.screenEdge.y, this.pos.y));
-    }
-
-    processKeyboardInput(delta) {
-        const speed = this.moveSpeed * delta;
-        if (Input.isPressed(Input.keys.UP))
-            this.pos.y += speed;
-        if (Input.isPressed(Input.keys.DOWN))
-            this.pos.y -= speed;
-
-        this.keepInViewport();
-    }
-
-    makeMove(delta, ball) {
-        const targetY = this.isBallApproaching(ball) ? ball.pos.y : 0;
-        this.moveTowards(targetY, this.moveSpeed * delta);
-    }
-
-    moveTowards(targetY, speed) {
-        const diff = targetY - this.pos.y;
-        const distance = Math.abs(diff);
-        this.pos.y = distance < speed ? targetY : this.pos.y + speed * diff / distance;
-        this.keepInViewport();
-    }
-
-    isBallApproaching(ball) {
-        const diff = this.pos.x - ball.pos.x;
-        // if different signs, multiplication will be negative, otherwise positive.
-        const isSameSign = diff * ball.direction.x >= 0;
-        return ball.isMoving && isSameSign;
-    }
-}
-
-class Ball extends RenderObject {
+class Cube extends RenderObject {
     constructor() {
-        const segmentCount = 100;
-        const step = 2 * Math.PI / segmentCount;
-        const radius = 25;
-        const v = new Vector2d(0, radius);
-        const vertices = [...Array(segmentCount).keys()].flatMap(n => {
-            const p = v.rotate(n * step);
-            return [p.x, p.y];
+        super({
+            dimensions: 3,
+            data: [
+                1, 1, 1,
+                1, 1, -1,
+                1, -1, 1,
+                1, -1, -1,
+                -1, 1, 1,
+                -1, 1, -1,
+                -1, -1, 1,
+                -1, -1, -1
+            ]
+        }, {
+            indices: [
+                0, 1,
+                0, 2,
+                0, 4,
+                1, 3,
+                1, 5,
+                2, 3,
+                2, 6,
+                3, 7,
+                4, 5,
+                4, 6,
+                5, 7,
+                6, 7
+            ],
+            drawMode: "LINES",
+            scale: new Vector3d(100, 100, 100)
         });
-
-        super(2, vertices, {
-            scale: Scene.scaling,
-            pos: new Vector2d(0, 0)
-        });
-
-        this.radius = radius;
-        this.updateScreenEdge();
-        this.reset();
     }
 
-    get defaultSpeed() {
-        return 300 / SECOND;
-    }
-
-    get speedMultiplier() {
-        return 1.2;
-    }
-
-    get maxSpeed() {
-        return 10 * this.defaultSpeed;
-    }
-
-    get bounceSpread() {
-        return 30;
-    }
-
-    get randomBounceSpread() {
-        return Math.random() * this.bounceSpread - this.bounceSpread / 2;
-    }
-
-    get randomBounceSpreadRad() {
-        return this.randomBounceSpread * 2 * Math.PI / 360;
-    }
-
-    get isOut() {
-        return Math.abs(this.pos.x) >= this.screenEdge.x;
-    }
-
-    get isMoving() {
-        return this.direction.x || this.direction.y;
-    }
-
-    reset() {
-        this.direction = new Vector2d(0, 0);
-        this.pos = new Vector2d(0, 0);
-        this.speed = this.defaultSpeed;
-    }
-
-    updateScreenEdge() {
-        this.screenEdge = new Vector2d(canvas.width / 2 - this.radius, canvas.height / 2 - this.radius);
-    }
-
-    updatePosition(delta) {
-        if (!this.isMoving) return;
-
-        this.pos = this.pos.scaleAndAdd(this.direction, this.speed * delta);
-        this.bounceFromScreenEdge();
-    }
-
-    isCollisionPossible(player) {
-        const difference = player.pos.subtract(this.pos);
-        return Math.abs(difference.x) <= this.radius + player.width / 2
-            && Math.abs(difference.y) <= this.radius + player.height / 2;
-    }
-
-    bounce(player) {
-        this.direction.x = -this.direction.x;
-        this.direction = this.direction.add(this.getBounceDirection(player)).normalize();
-        this.speed = Math.min(this.speed * this.speedMultiplier, this.maxSpeed);
-    }
-
-    getBounceDirection(player) {
-        return this.pos.subtract(player.pos).rotate(this.randomBounceSpreadRad).normalize();
-    }
-
-    bounceFromScreenEdge() {
-        if (this.pos.y < this.screenEdge.y && this.pos.y > -this.screenEdge.y)
-            return;
-
-        this.direction.y = -this.direction.y;
-        this.pos.y = Math.max(-this.screenEdge.y, Math.min(this.screenEdge.y, this.pos.y));
-    }
-}
-
-class MidLine extends RenderObject {
-    constructor() {
-        const screenEdge = canvas.height / 2;
-        super(2, [
-            -1, -screenEdge,
-            1, -screenEdge,
-            1, screenEdge,
-            -1, screenEdge
-        ], {
-            scale: Scene.scaling
-        });
+    get rotationSpeed() {
+        return (Math.PI / 2) / SECOND;
     }
 }

@@ -1,5 +1,67 @@
 "use strict";
 
+class Scene {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.camera = Matrix4.lookAt(new Vector3d(0, 20, -200), Vector3d.ZERO);
+        this.projection = this.isometricProjection;
+        this.previousTime = 0;
+    }
+
+    static get scaling() {
+        return new Vector3d(canvas.width, canvas.height, 100).inverse().scale(2);
+    }
+
+    get resolution() {
+        return new Vector2d(canvas.width, canvas.height);
+    }
+
+    get isometricProjection() {
+        const bounds = this.resolution.scale(1 / 2);
+        return Matrix4.ortho(-bounds.x, bounds.x, -bounds.y, bounds.y, 1, 1000);
+    }
+
+    get perspectiveProjection() {
+        const bounds = this.resolution.scale(1 / 2);
+        return Matrix4.frustum(-bounds.x, bounds.x, -bounds.y, bounds.y, 100, 1000);
+    }
+
+    get renderer() {
+        if (!this._renderer) {
+            const renderObjects = this.renderObjects.map(o => {
+                o.setScene(this);
+                return o;
+            });
+            this._renderer = new Renderer(this.canvas, renderObjects, this.attributes, this.uniforms);
+        }
+
+        return this._renderer;
+    }
+
+    get attributes() {
+        return [];
+    }
+
+    get uniforms() {
+        return {};
+    }
+
+    get renderObjects() {
+        return [];
+    }
+
+    update(currentTime) {
+        requestAnimationFrame(this.update.bind(this));
+
+        const delta = currentTime - this.previousTime;
+        this.updateWorld(delta);
+        this.renderer.draw();
+        this.previousTime = currentTime;
+    }
+
+    updateWorld() { /* virtual */ }
+}
+
 class Renderer {
     constructor(canvas, renderObjects, attributes, uniforms) {
         this.isReady = false;
@@ -19,13 +81,13 @@ class Renderer {
     }
 
     setUpAttributes(shaderProgram, attributes) {
-        const defaultAttributes = ["aVertices", "aTextureCoord", "aColor"];
+        const defaultAttributes = ["vertices", "textureCoord", "color"];
         return this.getLocations(shaderProgram, "Attrib", [...attributes, ...defaultAttributes]);
     }
 
     setUpUniforms(shaderProgram, uniforms) {
         this.uniforms = uniforms;
-        const defaultUniforms = ["uSampler", "uProjection", "uTransformation"];
+        const defaultUniforms = ["uSampler", "uProjection", "uCamera", "uModel"];
         return this.getLocations(shaderProgram, "Uniform", [...Object.keys(uniforms), ...defaultUniforms]);
     }
 
@@ -43,17 +105,29 @@ class Renderer {
     }
 
     createAllBuffers(renderObject) {
+        const attributes = renderObject.attributes;
         const buffers = {};
-        for (const attribute in renderObject.attributes)
-            buffers[attribute] = this.createBuffer(renderObject.attributes[attribute].data);
+        for (const attribute in attributes) {
+            buffers[attribute] = attribute === "indices"
+                ? this.createIndexBuffer(attributes.indices)
+                : this.createVertexBuffer(attributes[attribute].data);
+        }
 
         return buffers;
     }
 
-    createBuffer(data) {
+    createVertexBuffer(data) {
+        return this.createBuffer(this.gl.ARRAY_BUFFER, new Float32Array(data));
+    }
+
+    createIndexBuffer(data) {
+        return this.createBuffer(this.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(data));
+    }
+
+    createBuffer(target, srcData) {
         const buffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(data), this.gl.STATIC_DRAW);
+        this.gl.bindBuffer(target, buffer);
+        this.gl.bufferData(target, srcData, this.gl.STATIC_DRAW);
         return buffer;
     }
 
@@ -66,24 +140,48 @@ class Renderer {
 
     drawObject(renderObject) {
         this.setAttributes(renderObject);
-        this.setTexture(renderObject.textureSrc)
+        this.setTexture(renderObject.textureSrc);
         renderObject.updateUniforms(this.uniforms);
         this.setUniforms();
 
+        if (renderObject.attributes.indices)
+            this.drawIndices(renderObject);
+        else
+            this.drawVertices(renderObject);
+    }
+
+    drawVertices(renderObject) {
         const verticesAttr = renderObject.attributes.aVertices;
         const verticesCount = verticesAttr.data.length / verticesAttr.dimensions;
-        this.gl.drawArrays(this.gl[renderObject.drawMode], 0, verticesCount);
+        this.gl.drawArrays(this.getDrawMode(renderObject), 0, verticesCount);
+    }
+
+    drawIndices(renderObject) {
+        const indicesCount = renderObject.attributes.indices.length;
+        this.gl.drawElements(this.getDrawMode(renderObject), indicesCount, this.gl.UNSIGNED_SHORT, 0);
+    }
+
+    getDrawMode(renderObject) {
+        return this.gl[renderObject.drawMode];
     }
 
     setAttributes(renderObject) {
-        for (const attr in renderObject.attributes)
-            this.setAttribute(this.attributeLocations[attr], renderObject.buffers[attr], renderObject.attributes[attr].dimensions);
+        for (const attr in renderObject.attributes) {
+            if (attr === "indices")
+                this.setIndexAttribute(renderObject.buffers.indices);
+            else
+                this.setVertexAttribute(this.attributeLocations[attr], renderObject.buffers[attr], renderObject.attributes[attr].dimensions);
+        }
     }
 
-    setAttribute(location, buffer, dimensions) {
+    setVertexAttribute(location, buffer, dimensions) {
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
         this.gl.vertexAttribPointer(location, dimensions, this.gl.FLOAT, false, 0, 0);
         this.gl.enableVertexAttribArray(location);
+    }
+
+    setIndexAttribute(buffer) {
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, buffer);
     }
 
     setTexture(textureSrc) {
@@ -102,6 +200,8 @@ class Renderer {
                     this.gl[`uniform${o.length}fv`](locations[property], o);
                 if (o instanceof Matrix3)
                     this.gl.uniformMatrix3fv(locations[property], false, o.data);
+                if (o instanceof Matrix4)
+                    this.gl.uniformMatrix4fv(locations[property], false, o.data);
                 else
                     /* no clue how to handle this type of uniform */;
             }
@@ -152,124 +252,50 @@ class ResourceManager {
 }
 
 class RenderObject {
-    constructor(dimensions, vertices, options) {
+    constructor(vertices, options) {
+        this.setAttributes(vertices, options);
+        this.setTexture(options?.texture);
+
+        this.drawMode = options?.drawMode ?? "TRIANGLES";
+
+        this.pos = options?.pos ?? new Vector3d(0, 0, 0);
+        this.scaling = options?.scale ?? new Vector3d(1, 1, 1);
+        this.rotation = Quaternion.IDENTITY;
+    }
+
+    setScene(scene) {
+        this.scene = scene;
+    }
+
+    setAttributes(vertices, options) {
         this.attributes = {
-            aVertices: {
-                dimensions: dimensions,
-                data: vertices
-            },
-            aColor: options?.color ?? {
-                dimensions: 4,
-                data: [...Array(vertices.length / dimensions)].flatMap(_ => [1, 1, 1, 1])
+            ...options?.attributes,
+            ...{
+                vertices: vertices,
+                indices: options?.indices
             }
         };
-        this.textureSrc = options?.texture?.src;
-        if (this.textureSrc) {
-            this.attributes.aTextureCoord = {
-                dimensions: 2,
-                data: options.texture.coords
+        if (!this.attributes.color) {
+            this.attributes.color = {
+                dimensions: 4,
+                data: [...Array(vertices.data.length / vertices.dimensions)].flatMap(_ => [1, 1, 1, 1])
             };
         }
-        this.drawMode = options?.drawMode ?? "TRIANGLE_FAN";
-        this.pos = options?.pos ?? new Vector2d(0, 0);
-        this.scaling = options?.scale ?? new Vector2d(1, 1);
+    }
 
-        this.attributes = { ...options?.attributes, ...this.attributes };
+    setTexture(texture) {
+        if (!texture) return;
+
+        this.textureSrc = texture.src;
+        this.attributes.textureCoord = {
+            dimensions: 2,
+            data: texture.coords
+        };
     }
 
     updateUniforms(uniforms) {
-        uniforms.uProjection = Matrix3.fromScaling(this.scaling.x, this.scaling.y);
-        uniforms.uTransformation = Matrix3.fromTranslation(this.pos.x, this.pos.y);
-    }
-}
-
-/// Wrapper for gl-matrix vec2
-class Vector2d {
-    constructor(x, y) {
-        this.data = vec2.fromValues(x, y);
-    }
-
-    static fromVec2(vec) {
-        return new Vector2d(vec[0], vec[1]);
-    }
-
-    get x() { return this.data[0]; }
-    get y() { return this.data[1]; }
-    set x(val) { this.data[0] = val; }
-    set y(val) { this.data[1] = val; }
-
-    clone() {
-        return vec2.clone(this.data);
-    }
-
-    add(other) {
-        const result = vec2.create();
-        vec2.add(result, this.data, other.data);
-        return Vector2d.fromVec2(result);
-    }
-
-    subtract(other) {
-        const result = vec2.create();
-        vec2.subtract(result, this.data, other.data);
-        return Vector2d.fromVec2(result);
-    }
-
-    negate() {
-        const result = vec2.create();
-        vec2.negate(result, this.data);
-        return Vector2d.fromVec2(result);
-    }
-
-    inverse() {
-        const result = vec2.create();
-        vec2.inverse(result, this.data);
-        return Vector2d.fromVec2(result);
-    }
-
-    normalize() {
-        const result = vec2.create();
-        vec2.normalize(result, this.data);
-        return Vector2d.fromVec2(result);
-    }
-
-    rotate(rad) {
-        const rotate = mat2.create();
-        mat2.fromRotation(rotate, rad);
-
-        const result = vec2.create();
-        vec2.transformMat2(result, this.data, rotate);
-
-        return Vector2d.fromVec2(result);
-    }
-
-    scale(scalar) {
-        const result = vec2.create();
-        vec2.scale(result, this.data, scalar);
-        return Vector2d.fromVec2(result);
-    }
-
-    scaleAndAdd(other, scalar) {
-        const result = vec2.create();
-        vec2.scaleAndAdd(result, this.data, other.data, scalar);
-        return Vector2d.fromVec2(result);
-    }
-}
-
-/// Wrapper for gl-matrix mat3
-class Matrix3 {
-    constructor(data) {
-        this.data = data;
-    }
-
-    static fromScaling(x, y) {
-        const data = mat3.create();
-        mat3.fromScaling(data, [x, y]);
-        return new Matrix3(data);
-    }
-
-    static fromTranslation(x, y) {
-        const data = mat3.create();
-        mat3.fromTranslation(data, [x, y]);
-        return new Matrix3(data);
+        uniforms.uProjection = this.scene.projection;
+        uniforms.uCamera = this.scene.camera;
+        uniforms.uModel = Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling);
     }
 }
