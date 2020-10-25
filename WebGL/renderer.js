@@ -3,27 +3,28 @@
 class Scene {
     constructor(canvas) {
         this.canvas = canvas;
-        this.camera = Matrix4.lookAt(new Vector3d(0, 20, -200), Vector3d.ZERO);
-        this.projection = this.isometricProjection;
+        this.camera = new Camera();
+        this.projection = this.getIsometricProjection();
         this.previousTime = 0;
-    }
-
-    static get scaling() {
-        return new Vector3d(canvas.width, canvas.height, 100).inverse().scale(2);
     }
 
     get resolution() {
         return new Vector2d(canvas.width, canvas.height);
     }
 
-    get isometricProjection() {
+    getIsometricProjection() {
         const bounds = this.resolution.scale(1 / 2);
         return Matrix4.ortho(-bounds.x, bounds.x, -bounds.y, bounds.y, 1, 1000);
     }
 
-    get perspectiveProjection() {
+    getFrustumProjection() {
         const bounds = this.resolution.scale(1 / 2);
         return Matrix4.frustum(-bounds.x, bounds.x, -bounds.y, bounds.y, 100, 1000);
+    }
+
+    getPerspectiveProjection(fovy) {
+        const res = this.resolution;
+        return Matrix4.perspective(fovy ?? 90, res.x / res.y, 1, 1000);
     }
 
     get renderer() {
@@ -60,6 +61,18 @@ class Scene {
     }
 
     updateWorld() { /* virtual */ }
+}
+
+class Camera {
+    constructor() {
+        this.pos = new Vector3d(0, 0, -10);
+        this.up = new Vector3d(0, 1, 0);
+        this.lookAt(Vector3d.ZERO);
+    }
+
+    lookAt(target) {
+        this.matrix = Matrix4.lookAt(this.pos, target, this.up);
+    }
 }
 
 class Renderer {
@@ -263,6 +276,10 @@ class RenderObject {
         this.rotation = Quaternion.IDENTITY;
     }
 
+    get matrix() {
+        return Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling);
+    }
+
     setScene(scene) {
         this.scene = scene;
     }
@@ -295,7 +312,7 @@ class RenderObject {
 
     updateUniforms(uniforms) {
         uniforms.uProjection = this.scene.projection;
-        uniforms.uCamera = this.scene.camera;
-        uniforms.uModel = Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling);
+        uniforms.uCamera = this.scene.camera.matrix;
+        uniforms.uModel = this.matrix;
     }
 }

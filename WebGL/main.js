@@ -53,6 +53,7 @@ class Input {
 class Game extends Scene {
     constructor() {
         super(canvas);
+        this.projection = this.getPerspectiveProjection();
         this.cube = new Cube();
     }
 
@@ -97,7 +98,7 @@ class Cube extends RenderObject {
                 6, 7
             ],
             drawMode: "LINES",
-            scale: new Vector3d(100, 100, 100)
+            scale: new Vector3d(1, 1, 1).scale(10)
         });
     }
 
