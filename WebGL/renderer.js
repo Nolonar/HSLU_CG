@@ -75,6 +75,23 @@ class Camera {
     }
 }
 
+class InputManager {
+    constructor() {
+        throw new Error("Cannot instantiate static class.");
+    }
+
+    static pressed = {};
+
+    static registerKeyEvents() {
+        document.onkeydown = e => InputManager.pressed[e.code] = true;
+        document.onkeyup = e => InputManager.pressed[e.code] = false;
+    }
+
+    static isPressed(keyCode) {
+        return !!InputManager.pressed[keyCode];
+    }
+}
+
 class Renderer {
     constructor(canvas, renderObjects, attributes, uniforms) {
         this.isReady = false;

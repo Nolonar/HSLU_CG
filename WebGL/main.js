@@ -10,45 +10,11 @@ window.onload = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    Input.registerKeyEvents();
+    InputManager.registerKeyEvents();
 
     const scene = new Game();
     requestAnimationFrame(scene.update.bind(scene));
 };
-
-class Input {
-    constructor() {
-        throw new Error("Cannot instantiate static class.");
-    }
-
-    static pressed = {};
-
-    static get keys() {
-        return {
-            LEFT: 37,
-            UP: 38,
-            RIGHT: 39,
-            DOWN: 40
-        };
-    }
-
-    static registerKeyEvents() {
-        document.onkeydown = Input.onKeyDown;
-        document.onkeyup = Input.onKeyUp;
-    }
-
-    static onKeyDown(e) {
-        Input.pressed[e.keyCode] = true;
-    }
-
-    static onKeyUp(e) {
-        Input.pressed[e.keyCode] = false;
-    }
-
-    static isPressed(keyCode) {
-        return !!Input.pressed[keyCode];
-    }
-}
 
 class Game extends Scene {
     constructor() {
