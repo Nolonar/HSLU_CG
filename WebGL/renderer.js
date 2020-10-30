@@ -24,7 +24,7 @@ class Scene {
 
     getPerspectiveProjection(fovy) {
         const res = this.resolution;
-        return Matrix4.perspective(fovy ?? 90, res.x / res.y, 1, 1000);
+        return Matrix4.perspective(fovy ?? Math.PI / 2, res.x / res.y, 1, 1000);
     }
 
     get renderer() {
@@ -65,7 +65,7 @@ class Scene {
 
 class Camera {
     constructor() {
-        this.pos = new Vector3d(0, 0, -10);
+        this.pos = new Vector3d(0, 0, -1);
         this.up = new Vector3d(0, 1, 0);
         this.lookAt(Vector3d.ZERO);
     }
@@ -106,8 +106,16 @@ class Renderer {
         this.resourceManager = new ResourceManager(this);
         this.renderObjects = [];
 
-        this.gl.clearColor(0, 0, 0, 1);
+        this.initialize();
         this.addRenderObjects(renderObjects);
+    }
+
+    initialize() {
+        this.gl.clearColor(0, 0, 0, 1);
+        this.gl.frontFace(this.gl.CCW);
+        this.gl.cullFace(this.gl.BACK);
+        this.gl.enable(this.gl.CULL_FACE);
+        this.gl.enable(this.gl.DEPTH_TEST);
     }
 
     setUpAttributes(shaderProgram, attributes) {
@@ -117,7 +125,7 @@ class Renderer {
 
     setUpUniforms(shaderProgram, uniforms) {
         this.uniforms = uniforms;
-        const defaultUniforms = ["uSampler", "uProjection", "uCamera", "uModel"];
+        const defaultUniforms = ["uHasTexture", "uSampler", "uProjection", "uCamera", "uModel"];
         return this.getLocations(shaderProgram, "Uniform", [...Object.keys(uniforms), ...defaultUniforms]);
     }
 
@@ -164,7 +172,7 @@ class Renderer {
     draw() {
         if (!this.isReady) return;
 
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
         this.renderObjects.forEach(o => this.drawObject(o));
     }
 
@@ -215,7 +223,9 @@ class Renderer {
     }
 
     setTexture(textureSrc) {
+        this.gl.uniform1i(this.uniformLocations.uHasTexture, !!textureSrc);
         if (!textureSrc) return;
+
         this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.resourceManager.getTexture(textureSrc));
         this.gl.uniform1i(this.uniformLocations.uSampler, 0);
@@ -293,10 +303,6 @@ class RenderObject {
         this.rotation = Quaternion.IDENTITY;
     }
 
-    get matrix() {
-        return Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling);
-    }
-
     setScene(scene) {
         this.scene = scene;
     }
@@ -330,6 +336,6 @@ class RenderObject {
     updateUniforms(uniforms) {
         uniforms.uProjection = this.scene.projection;
         uniforms.uCamera = this.scene.camera.matrix;
-        uniforms.uModel = this.matrix;
+        uniforms.uModel = Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling);
     }
 }
