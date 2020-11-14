@@ -293,10 +293,9 @@ class ResourceManager {
 
 class RenderObject {
     constructor(vertices, options) {
+        this.drawMode = vertices.drawMode;
         this.setAttributes(vertices, options);
         this.setTexture(options?.texture);
-
-        this.drawMode = options?.drawMode ?? "TRIANGLES";
 
         this.pos = options?.pos ?? new Vector3d(0, 0, 0);
         this.scaling = options?.scale ?? new Vector3d(1, 1, 1);

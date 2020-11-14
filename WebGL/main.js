@@ -41,49 +41,14 @@ class Game extends Scene {
 
 class CubeTextured extends RenderObject {
     constructor(pos) {
-        super({
-            dimensions: 3,
-            data: [
-                1, 1, 1,
-                1, 1, -1,
-                1, -1, 1,
-                1, -1, -1,
-                -1, 1, 1,
-                -1, 1, -1,
-                -1, -1, 1,
-                -1, -1, -1
-            ]
-        }, {
-            indices: [
-                0, 2, 1,
-                1, 2, 3,
-                0, 4, 2,
-                2, 4, 6,
-                0, 1, 4,
-                1, 5, 4,
-                1, 3, 5,
-                3, 7, 5,
-                2, 6, 3,
-                3, 6, 7,
-                4, 5, 6,
-                5, 7, 6
-            ],
-            drawMode: "TRIANGLES",
-            pos: pos,
-            scale: new Vector3d(1, 1, 1).scale(10),
+        super(Cube.vertices, {
+            indices: Cube.indices,
             texture: {
                 src: "textures/lena512.png",
-                coords: [
-                    0, 1,
-                    1, 1,
-                    0, 0,
-                    1, 0,
-                    1, 1,
-                    0, 1,
-                    1, 0,
-                    0, 0
-                ]
-            }
+                coords: Cube.textureCoordinates
+            },
+            pos: pos,
+            scale: new Vector3d(1, 1, 1).scale(10)
         });
     }
 
@@ -94,51 +59,23 @@ class CubeTextured extends RenderObject {
 
 class CubeColored extends RenderObject {
     constructor(pos) {
-        super({
-            dimensions: 3,
-            data: [
-                1, 1, 1,
-                1, 1, -1,
-                1, -1, 1,
-                1, -1, -1,
-                -1, 1, 1,
-                -1, 1, -1,
-                -1, -1, 1,
-                -1, -1, -1
-            ]
-        }, {
-            indices: [
-                0, 2, 1,
-                1, 2, 3,
-                0, 4, 2,
-                2, 4, 6,
-                0, 1, 4,
-                1, 5, 4,
-                1, 3, 5,
-                3, 7, 5,
-                2, 6, 3,
-                3, 6, 7,
-                4, 5, 6,
-                5, 7, 6
-            ],
-            drawMode: "TRIANGLES",
-            pos: pos,
-            scale: new Vector3d(1, 1, 1).scale(10),
+        super(Cube.vertices, {
+            indices: Cube.indices,
             attributes: {
                 color: {
                     dimensions: 4,
-                    data: [
-                        0, 0, 0, 1,
-                        1, 0, 0, 1,
-                        0, 1, 0, 1,
-                        1, 1, 0, 1,
-                        0, 0, 1, 1,
-                        1, 0, 1, 1,
-                        0, 1, 1, 1,
-                        1, 1, 1, 1
-                    ]
+                    data: Cube.getColor(
+                        [1, 0, 0, 1],
+                        [0, 1, 0, 1],
+                        [0, 0, 1, 1],
+                        [1, 1, 0, 1],
+                        [0, 1, 1, 1],
+                        [1, 0, 1, 1]
+                    )
                 }
-            }
+            },
+            pos: pos,
+            scale: new Vector3d(1, 1, 1).scale(10)
         });
     }
 
