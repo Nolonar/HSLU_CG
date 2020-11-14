@@ -56,11 +56,13 @@ class Scene {
 
         const delta = currentTime - this.previousTime;
         this.updateWorld(delta);
-        this.renderer.draw();
+        this.renderer.draw(this);
         this.previousTime = currentTime;
     }
 
-    updateWorld() { /* virtual */ }
+    updateWorld(delta) { /* virtual */ }
+
+    updateUniforms(uniforms) { /* virtual */ }
 }
 
 class Camera {
@@ -119,13 +121,13 @@ class Renderer {
     }
 
     setUpAttributes(shaderProgram, attributes) {
-        const defaultAttributes = ["vertices", "textureCoord", "color"];
+        const defaultAttributes = ["vertices", "normals", "textureCoord", "color"];
         return this.getLocations(shaderProgram, "Attrib", [...attributes, ...defaultAttributes]);
     }
 
     setUpUniforms(shaderProgram, uniforms) {
         this.uniforms = uniforms;
-        const defaultUniforms = ["uHasTexture", "uSampler", "uProjection", "uModel"];
+        const defaultUniforms = ["uIsLit", "uLightDirection", "uLightColor", "uHasTexture", "uSampler", "uProjection", "uModel", "uNormals"];
         return this.getLocations(shaderProgram, "Uniform", [...Object.keys(uniforms), ...defaultUniforms]);
     }
 
@@ -169,10 +171,11 @@ class Renderer {
         return buffer;
     }
 
-    draw() {
+    draw(scene) {
         if (!this.isReady) return;
 
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        scene.updateUniforms(this.uniforms);
         this.renderObjects.forEach(o => this.drawObject(o));
     }
 
@@ -234,10 +237,15 @@ class Renderer {
     setUniforms() {
         const locations = this.uniformLocations;
         const functionMapper = {
+            boolean: (property, b) => this.gl.uniform1i(locations[property], b),
             number: (property, n) => this.gl.uniform1f(locations[property], n),
             object: (property, o) => {
                 if (Array.isArray(o))
                     this.gl[`uniform${o.length}fv`](locations[property], o);
+                if (o instanceof Vector2d)
+                    this.gl.uniform2fv(locations[property], o.data);
+                if (o instanceof Vector3d)
+                    this.gl.uniform3fv(locations[property], o.data);
                 if (o instanceof Matrix3)
                     this.gl.uniformMatrix3fv(locations[property], false, o.data);
                 if (o instanceof Matrix4)
@@ -296,6 +304,7 @@ class RenderObject {
         this.drawMode = vertices.drawMode;
         this.setAttributes(vertices, options);
         this.setTexture(options?.texture);
+        this.isLit = options?.isLit ?? true;
 
         this.pos = options?.pos ?? new Vector3d(0, 0, 0);
         this.scaling = options?.scale ?? new Vector3d(1, 1, 1);
@@ -311,7 +320,11 @@ class RenderObject {
             ...options?.attributes,
             ...{
                 vertices: vertices,
-                indices: options?.indices
+                indices: options?.indices,
+                normals: options?.normals ?? {
+                    dimensions: 3,
+                    data: [...Array(vertices.data.length / vertices.dimensions)].flatMap(_ => [0, 0, 1])
+                }
             }
         };
         if (!this.attributes.color) {
@@ -333,7 +346,11 @@ class RenderObject {
     }
 
     updateUniforms(uniforms) {
+        const modelMat = Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling)
+
+        uniforms.uIsLit = this.isLit;
         uniforms.uProjection = this.scene.projection;
-        uniforms.uModel = this.scene.camera.matrix.mul(Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling));
+        uniforms.uModel = this.scene.camera.matrix.mul(modelMat);
+        uniforms.uNormals = Matrix3.normalFromMat4(modelMat);
     }
 }

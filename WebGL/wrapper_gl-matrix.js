@@ -64,6 +64,8 @@ class Vector3d {
     }
 
     static get ZERO() { return Vector3d.fromVec(vec3.create()); }
+    static get UP() { return new Vector3d(0, 1, 0); }
+    static get DOWN() { return new Vector3d(0, -1, 0); }
 
     get x() { return this.data[0]; }
     get y() { return this.data[1]; }
@@ -96,9 +98,16 @@ class Vector3d {
         return Vector3d.fromVec(vec3.normalize(vec3.create(), this.data));
     }
 
-    rotate(rad) {
-        const rotate = mat3.fromRotation(mat3.create(), rad);
-        return Vector3d.fromVec(vec3.transformMat3(vec3.create(), this.data, rotate));
+    rotateX(rad) {
+        return Vector3d.fromVec(vec3.rotateX(vec3.create(), this.data, vec3.create(), rad));
+    }
+
+    rotateY(rad) {
+        return Vector3d.fromVec(vec3.rotateY(vec3.create(), this.data, vec3.create(), rad));
+    }
+
+    rotateZ(rad) {
+        return Vector3d.fromVec(vec3.rotateZ(vec3.create(), this.data, vec3.create(), rad));
     }
 
     scale(scalar) {
@@ -121,6 +130,10 @@ class Matrix3 {
 
     static fromTranslation(x, y) {
         return new Matrix3(mat3.fromTranslation(mat3.create(), [x, y]));
+    }
+
+    static normalFromMat4(mat) {
+        return new Matrix3(mat3.normalFromMat4(mat3.create(), mat.data));
     }
 }
 

@@ -43,31 +43,19 @@ class Cube {
         drawMode: "TRIANGLES"
     };
 
-    static indices = [
-        // Front
-        0, 1, 2,
-        0, 2, 3,
+    static indices = [...Array(6).keys()].flatMap(n => [0, 1, 2, 0, 2, 3].map(i => i + n * 4));
 
-        // Back
-        4, 5, 6,
-        4, 6, 7,
-
-        // Top
-        8, 9, 10,
-        8, 10, 11,
-
-        // Bottom
-        12, 13, 14,
-        12, 14, 15,
-
-        // Right
-        16, 17, 18,
-        16, 18, 19,
-
-        // Left
-        20, 21, 22,
-        20, 22, 23
-    ];
+    static normals = {
+        dimensions: 3,
+        data: [
+            [0.0, 0.0, 1.0], // Front
+            [0.0, 0.0, -1.0], // Back
+            [0.0, 1.0, 0.0], // Top
+            [0.0, -1.0, 0.0], // Bottom
+            [1.0, 0.0, 0.0], // Right
+            [-1.0, 0.0, 0.0] // Left
+        ].flatMap(n => n.concat(n, n, n))
+    };
 
     static textureCoordinates = [
         // Front
@@ -109,5 +97,11 @@ class Cube {
 
     static getColor(colorFront, colorBack, colorTop, colorBottom, colorRight, colorLeft) {
         return [colorFront, colorBack, colorTop, colorBottom, colorRight, colorLeft].flatMap(c => c.concat(c, c, c))
+    }
+}
+
+class Sphere {
+    constructor(latitudeBands, longitudeBands) {
+
     }
 }
