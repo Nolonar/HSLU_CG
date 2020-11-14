@@ -301,7 +301,7 @@ class ResourceManager {
 
 class RenderObject {
     constructor(vertices, options) {
-        this.drawMode = vertices.drawMode;
+        this.drawMode = vertices.drawMode ?? "TRIANGLES";
         this.setAttributes(vertices, options);
         this.setTexture(options?.texture);
         this.isLit = options?.isLit ?? true;
