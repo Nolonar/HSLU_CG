@@ -156,6 +156,10 @@ class Matrix4 {
     static fromRotationTranslationScale(quaternion, translation, scaling) {
         return new Matrix4(mat4.fromRotationTranslationScale(mat4.create(), quaternion.data, translation.data, scaling.data));
     }
+
+    mul(other) {
+        return new Matrix4(mat4.mul(mat4.create(), this.data, other.data));
+    }
 }
 
 class Quaternion {

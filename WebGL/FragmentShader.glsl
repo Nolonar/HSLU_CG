@@ -7,9 +7,5 @@ varying vec2 vTextureCoord;
 varying vec4 vColor;
 
 void main() {
-    if (uHasTexture) {
-        gl_FragColor = texture2D(uSampler, vTextureCoord);
-    } else {
-        gl_FragColor = vColor;
-    }
+    gl_FragColor = uHasTexture ? texture2D(uSampler, vTextureCoord) : vColor;
 }

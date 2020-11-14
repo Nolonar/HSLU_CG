@@ -125,7 +125,7 @@ class Renderer {
 
     setUpUniforms(shaderProgram, uniforms) {
         this.uniforms = uniforms;
-        const defaultUniforms = ["uHasTexture", "uSampler", "uProjection", "uCamera", "uModel"];
+        const defaultUniforms = ["uHasTexture", "uSampler", "uProjection", "uModel"];
         return this.getLocations(shaderProgram, "Uniform", [...Object.keys(uniforms), ...defaultUniforms]);
     }
 
@@ -334,7 +334,6 @@ class RenderObject {
 
     updateUniforms(uniforms) {
         uniforms.uProjection = this.scene.projection;
-        uniforms.uCamera = this.scene.camera.matrix;
-        uniforms.uModel = Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling);
+        uniforms.uModel = this.scene.camera.matrix.mul(Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling));
     }
 }
