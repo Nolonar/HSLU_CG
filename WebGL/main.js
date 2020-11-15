@@ -27,7 +27,7 @@ class Game extends Scene {
         this.camera.pos = new Vector3d(0, 30, -20);
         this.cube1 = new CubeColored(new Vector3d(0, 10, 50));
         this.cube2 = new CubeTextured(new Vector3d(10, 10, 20));
-        this.spheres = [...Array(10)].map(_ => SphereColored.random);
+        this.spheres = [...Array(20)].map(_ => SphereColored.random);
         this.camera.lookAt(new Vector3d(0, 0, 30));
 
         this.lightDirection = Vector3d.UP.rotateX(-30 * DEG_TO_RAD).rotateZ(-30 * DEG_TO_RAD).normalize();
@@ -117,7 +117,7 @@ class SphereTextured extends RenderObject {
 
 class SphereColored extends RenderObject {
     constructor(pos, size, color) {
-        const sphere = new Sphere(20, 20);
+        const sphere = new Sphere(100, 100);
 
         super(sphere.vertices, {
             indices: sphere.indices,
