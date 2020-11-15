@@ -95,7 +95,7 @@ class Cube {
         0, 1
     ];
 
-    static getColor(colorFront, colorBack, colorTop, colorBottom, colorRight, colorLeft) {
+    static getColorData(colorFront, colorBack, colorTop, colorBottom, colorRight, colorLeft) {
         return [colorFront, colorBack, colorTop, colorBottom, colorRight, colorLeft].flatMap(c => c.concat(c, c, c))
     }
 }
@@ -169,7 +169,7 @@ class Sphere {
         }
     }
 
-    getColor(color) {
+    getColorData(color) {
         return [...Array(this.vertices.data.length / this.vertices.dimensions)].flatMap(_ => color)
     }
 }

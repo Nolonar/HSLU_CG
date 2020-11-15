@@ -5,6 +5,11 @@ class Scene {
         this.canvas = canvas;
         this.camera = new Camera();
         this.projection = this.getIsometricProjection();
+
+        this.lightColor = [1, 1, 1];
+        this.lightDirection = Vector3d.UP;
+        this.ambientLight = 0.2;
+
         this.previousTime = 0;
     }
 
@@ -60,9 +65,13 @@ class Scene {
         this.previousTime = currentTime;
     }
 
-    updateWorld(delta) { /* virtual */ }
+    updateUniforms(uniforms) {
+        uniforms.uAmbientLight = this.ambientLight;
+        uniforms.uLightDirection = this.lightDirection;
+        uniforms.uLightColor = this.lightColor;
+    }
 
-    updateUniforms(uniforms) { /* virtual */ }
+    updateWorld(delta) { /* virtual */ }
 }
 
 class Camera {
@@ -127,7 +136,7 @@ class Renderer {
 
     setUpUniforms(shaderProgram, uniforms) {
         this.uniforms = uniforms;
-        const defaultUniforms = ["uIsLit", "uLightDirection", "uLightColor", "uHasTexture", "uSampler", "uProjection", "uModel", "uNormals"];
+        const defaultUniforms = ["uIsLit", "uIsShiny", "uAmbientLight", "uShininess", "uLightDirection", "uLightColor", "uHasTexture", "uSampler", "uProjection", "uModel", "uNormals"];
         return this.getLocations(shaderProgram, "Uniform", [...Object.keys(uniforms), ...defaultUniforms]);
     }
 
@@ -305,6 +314,8 @@ class RenderObject {
         this.setAttributes(vertices, options);
         this.setTexture(options?.texture);
         this.isLit = options?.isLit ?? true;
+        this.isShiny = options?.isShiny ?? false;
+        this.shininess = options?.shininess ?? 8;
 
         this.pos = options?.pos ?? new Vector3d(0, 0, 0);
         this.scaling = options?.scale ?? new Vector3d(1, 1, 1);
@@ -349,6 +360,8 @@ class RenderObject {
         const modelMat = Matrix4.fromRotationTranslationScale(this.rotation, this.pos, this.scaling)
 
         uniforms.uIsLit = this.isLit;
+        uniforms.uIsShiny = this.isShiny;
+        uniforms.uShininess = this.shininess;
         uniforms.uProjection = this.scene.projection;
         uniforms.uModel = this.scene.camera.matrix.mul(modelMat);
         uniforms.uNormals = Matrix3.normalFromMat4(modelMat);

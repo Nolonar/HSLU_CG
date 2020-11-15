@@ -6,6 +6,8 @@ const MINUTE = 60 * SECOND;
 
 const DEG_TO_RAD = Math.PI / 180;
 
+const GRAVITY = Vector3d.DOWN.scale(10 / SECOND / SECOND);
+
 let canvas = null;
 window.onload = () => {
     canvas = document.getElementById("myCanvas");
@@ -22,35 +24,26 @@ class Game extends Scene {
     constructor() {
         super(canvas);
         this.projection = this.getPerspectiveProjection();
-        this.camera.pos = new Vector3d(0, 20, -20);
-        this.cube1 = new CubeColored(new Vector3d(0, 0, 50));
-        this.cube2 = new CubeTextured(new Vector3d(10, 0, 20));
-        this.sphere1 = new SphereColored(new Vector3d(-20, 0, 30));
-        this.sphere2 = new SphereTextured(new Vector3d(40, 0, 30));
-        this.camera.lookAt(new Vector3d(0, 0, 0));
+        this.camera.pos = new Vector3d(0, 30, -20);
+        this.cube1 = new CubeColored(new Vector3d(0, 10, 50));
+        this.cube2 = new CubeTextured(new Vector3d(10, 10, 20));
+        this.spheres = [...Array(10)].map(_ => SphereColored.random);
+        this.camera.lookAt(new Vector3d(0, 0, 30));
 
-        this.lightColor = [1, 1, 1];
-        this.lightDirection = Vector3d.DOWN.rotateX(-30 * DEG_TO_RAD).rotateZ(-30 * DEG_TO_RAD);
+        this.lightDirection = Vector3d.UP.rotateX(-30 * DEG_TO_RAD).rotateZ(-30 * DEG_TO_RAD).normalize();
     }
 
     get renderObjects() {
         return super.renderObjects.concat([
             this.cube1,
-            this.cube2,
-            this.sphere1,
-            this.sphere2
-        ]);
+            this.cube2
+        ], this.spheres);
     }
 
     updateWorld(delta) {
         this.cube1.rotation = this.cube1.rotation.rotateY(-this.cube1.rotationSpeed * delta);
         this.cube2.rotation = this.cube2.rotation.rotateY(this.cube2.rotationSpeed * delta);
-        this.sphere2.rotation = this.sphere2.rotation.rotateY(this.sphere2.rotationSpeed * delta);
-    }
-
-    updateUniforms(uniforms) {
-        uniforms.uLightDirection = this.lightDirection;
-        uniforms.uLightColor = this.lightColor;
+        this.spheres.forEach(sphere => sphere.updatePos(delta));
     }
 }
 
@@ -81,7 +74,7 @@ class CubeColored extends RenderObject {
             attributes: {
                 color: {
                     dimensions: 4,
-                    data: Cube.getColor(
+                    data: Cube.getColorData(
                         [1, 0, 0, 1],
                         [0, 1, 0, 1],
                         [0, 0, 1, 1],
@@ -123,7 +116,7 @@ class SphereTextured extends RenderObject {
 }
 
 class SphereColored extends RenderObject {
-    constructor(pos) {
+    constructor(pos, size, color) {
         const sphere = new Sphere(20, 20);
 
         super(sphere.vertices, {
@@ -132,11 +125,31 @@ class SphereColored extends RenderObject {
             attributes: {
                 color: {
                     dimensions: 4,
-                    data: sphere.getColor([1, 0, 0, 1])
+                    data: sphere.getColorData(color)
                 }
             },
+            isShiny: true,
+            shininess: 16,
             pos: pos,
-            scale: new Vector3d(1, 1, 1).scale(10)
+            scale: new Vector3d(1, 1, 1).scale(size)
         });
+        this.velocity = Vector3d.ZERO;
+        this.size = size;
+    }
+
+    static get random() {
+        const size = Math.random() * 5;
+        const pos = new Vector3d(RandomUtils.getBetween(-80, 80), RandomUtils.getBetween(size, 50), RandomUtils.getBetween(-10, 50));
+        const color = ColorUtils.hsvToRgb(Math.random() * 360, 1, 1).concat([1]);
+        return new SphereColored(pos, size, color);
+    }
+
+    updatePos(delta) {
+        this.pos = this.pos.scaleAndAdd(this.velocity, delta);
+        if (this.pos.y <= this.size) {
+            this.pos.y = this.size;
+            this.velocity.y = -this.velocity.y;
+        }
+        this.velocity = this.velocity.scaleAndAdd(GRAVITY, delta);
     }
 }
